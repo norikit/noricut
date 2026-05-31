@@ -1,14 +1,17 @@
-name: Auto-merge owner PRs
+name: Claude review & auto-merge
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
 permissions:
-  pull-requests: write
   contents: write
+  pull-requests: write
+  issues: write
 
 jobs:
-  auto-merge:
+  review-and-merge:
     if: github.event.pull_request.user.login == 'Eiluviann'
     uses: norikit/.github/.github/workflows/auto-merge.yml@main
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
