@@ -1,0 +1,110 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="52%" r="42%">
+      <stop offset="0%" stop-color="#a6e3a1" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#1e1e2e" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="0.5" cy="0.5" r="0.65" fill="#313244"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="#1e1e2e"/>
+  <rect width="1280" height="640" fill="url(#dots)" opacity="0.55"/>
+  <rect y="52" width="1280" height="588" fill="url(#glow)"/>
+
+  <!-- ——— BAR MOCKUP ——— -->
+  <rect width="1280" height="52" fill="#181825"/>
+  <!-- Subtle green accent top edge -->
+  <rect width="1280" height="2" fill="#a6e3a1" opacity="0.25"/>
+  <!-- Bar bottom border -->
+  <line x1="0" y1="52" x2="1280" y2="52" stroke="#313244" stroke-width="1"/>
+
+  <!-- Workspace pills -->
+  <!-- WS1 active -->
+  <rect x="18" y="14" width="38" height="24" rx="12" fill="#a6e3a1"/>
+  <text x="37" y="31" text-anchor="middle" fill="#1e1e2e" font-family="Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700">1</text>
+  <!-- WS2 -->
+  <rect x="64" y="14" width="38" height="24" rx="12" fill="none" stroke="#45475a" stroke-width="1.5"/>
+  <text x="83" y="31" text-anchor="middle" fill="#585b70" font-family="Menlo, Monaco, Consolas, monospace" font-size="12">2</text>
+  <!-- WS3 -->
+  <rect x="110" y="14" width="38" height="24" rx="12" fill="none" stroke="#45475a" stroke-width="1.5"/>
+  <text x="129" y="31" text-anchor="middle" fill="#585b70" font-family="Menlo, Monaco, Consolas, monospace" font-size="12">3</text>
+  <!-- WS4 -->
+  <rect x="156" y="14" width="38" height="24" rx="12" fill="none" stroke="#313244" stroke-width="1"/>
+  <text x="175" y="31" text-anchor="middle" fill="#45475a" font-family="Menlo, Monaco, Consolas, monospace" font-size="12">4</text>
+  <!-- WS5 -->
+  <rect x="202" y="14" width="38" height="24" rx="12" fill="none" stroke="#313244" stroke-width="1"/>
+  <text x="221" y="31" text-anchor="middle" fill="#45475a" font-family="Menlo, Monaco, Consolas, monospace" font-size="12">5</text>
+
+  <!-- Separator: workspaces | title -->
+  <line x1="256" y1="13" x2="256" y2="39" stroke="#313244" stroke-width="1"/>
+
+  <!-- Window title center -->
+  <text x="640" y="31" text-anchor="middle" fill="#bac2de" font-family="Menlo, Monaco, Consolas, monospace" font-size="13">Neovim  ·  ~/projects/noricut/src/main.rs</text>
+
+  <!-- Separator: title | widgets -->
+  <line x1="940" y1="13" x2="940" y2="39" stroke="#313244" stroke-width="1"/>
+
+  <!-- CPU widget -->
+  <text x="968" y="23" text-anchor="start" fill="#6c7086" font-family="Menlo, Monaco, Consolas, monospace" font-size="10">CPU</text>
+  <text x="968" y="39" text-anchor="start" fill="#a6adc8" font-family="Menlo, Monaco, Consolas, monospace" font-size="13">08%</text>
+  <line x1="1006" y1="13" x2="1006" y2="39" stroke="#313244" stroke-width="1"/>
+
+  <!-- MEM widget -->
+  <text x="1014" y="23" text-anchor="start" fill="#6c7086" font-family="Menlo, Monaco, Consolas, monospace" font-size="10">MEM</text>
+  <text x="1014" y="39" text-anchor="start" fill="#a6adc8" font-family="Menlo, Monaco, Consolas, monospace" font-size="13">4.2G</text>
+  <line x1="1056" y1="13" x2="1056" y2="39" stroke="#313244" stroke-width="1"/>
+
+  <!-- Battery: icon + % -->
+  <rect x="1064" y="17" width="26" height="15" rx="2.5" fill="none" stroke="#a6adc8" stroke-width="1.5"/>
+  <rect x="1090" y="22" width="3" height="5" rx="1.5" fill="#a6adc8"/>
+  <rect x="1066" y="19" width="20" height="11" rx="1.5" fill="#a6e3a1"/>
+  <text x="1100" y="31" text-anchor="start" fill="#a6adc8" font-family="Menlo, Monaco, Consolas, monospace" font-size="13">84%</text>
+  <line x1="1144" y1="13" x2="1144" y2="39" stroke="#313244" stroke-width="1"/>
+
+  <!-- Date -->
+  <text x="1182" y="31" text-anchor="middle" fill="#a6adc8" font-family="Menlo, Monaco, Consolas, monospace" font-size="13">Sat 31</text>
+  <line x1="1220" y1="13" x2="1220" y2="39" stroke="#313244" stroke-width="1"/>
+
+  <!-- Time -->
+  <text x="1258" y="31" text-anchor="middle" fill="#cdd6f4" font-family="Menlo, Monaco, Consolas, monospace" font-size="14" font-weight="500">14:32</text>
+
+
+  <!-- ——— MAIN GLYPH ——— -->
+  <!-- [n + dashed right bracket], centered at x=640, baseline y=372 -->
+  <!-- Georgia 180px estimates: [ ~64px, n ~124px, ] ~64px → total ~252, half=126 → starts x=514 -->
+
+  <!-- Left bracket -->
+  <text x="514" y="372" text-anchor="start" fill="#a6e3a1" font-family="Georgia, 'Times New Roman', serif" font-size="180">[</text>
+
+  <!-- n -->
+  <text x="580" y="372" text-anchor="start" fill="#cdd6f4" font-family="Georgia, 'Times New Roman', serif" font-size="180">n</text>
+
+  <!-- Dashed right bracket: vertical on right (x=754), nubs extend left to x=718 -->
+  <!-- Bracket spans y=234 to y=388 -->
+  <!-- Top nub (solid) -->
+  <line x1="754" y1="234" x2="718" y2="234" stroke="#a6e3a1" stroke-width="9" stroke-linecap="round"/>
+  <!-- Dashed vertical -->
+  <line x1="754" y1="234" x2="754" y2="388" stroke="#a6e3a1" stroke-width="9" stroke-dasharray="21,14" stroke-linecap="round"/>
+  <!-- Bottom nub (solid) -->
+  <line x1="754" y1="388" x2="718" y2="388" stroke="#a6e3a1" stroke-width="9" stroke-linecap="round"/>
+
+
+  <!-- ——— TITLE ——— -->
+  <text x="640" y="462" text-anchor="middle" fill="#cdd6f4" font-family="Georgia, 'Times New Roman', serif" font-size="44" letter-spacing="14">noribar</text>
+
+  <!-- ——— TAGLINE ——— -->
+  <text x="640" y="506" text-anchor="middle" fill="#6c7086" font-family="Menlo, Monaco, Consolas, monospace" font-size="15" letter-spacing="3">extensible  ·  ricable  ·  norikit</text>
+
+  <!-- Divider -->
+  <line x1="516" y1="538" x2="764" y2="538" stroke="#313244" stroke-width="1"/>
+
+  <!-- Suite label -->
+  <text x="640" y="566" text-anchor="middle" fill="#45475a" font-family="Menlo, Monaco, Consolas, monospace" font-size="12" letter-spacing="2">norikit suite</text>
+
+  <!-- Small [n] glyph at bottom -->
+  <text x="640" y="602" text-anchor="middle" fill="#2a2a3d" font-family="Georgia, 'Times New Roman', serif" font-size="22">[n]</text>
+
+</svg>
