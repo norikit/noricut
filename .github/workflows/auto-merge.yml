@@ -1,0 +1,14 @@
+name: Auto-merge owner PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  auto-merge:
+    if: github.event.pull_request.user.login == 'Eiluviann'
+    uses: norikit/.github/.github/workflows/auto-merge.yml@main
