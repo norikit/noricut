@@ -20,11 +20,14 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are used as in RFC 211
    microseconds local dispatch, no allocation on the hot path.
 2. **OS‑agnostic.** Works on macOS, Linux, the BSDs, and Windows 10+ using only
    facilities every modern OS provides.
-3. **Language‑agnostic.** A complete client is implementable in well under ~150 lines
-   in C, Rust, Go, Swift, Python, or even a shell with `socat`. No mandatory
-   serialization library, no schema compiler, no code generation.
-4. **Content‑agnostic routing.** The broker routes on a UTF‑8 *subject* only. It MUST
-   NOT need to parse the payload. Payloads are opaque bytes forwarded verbatim.
+3. **Language‑agnostic, no library required.** A complete client is "read a line, parse
+   JSON, write a line." Both halves are in the standard library of every mainstream
+   language — `readline`/`bufio.Scanner`/`makefile()` and a JSON parser. No mandatory
+   serialization library, no schema compiler, no code generation, no FFI. A working
+   subscriber is ~8 lines (§11).
+4. **Routes on subject only.** The broker reads the message *envelope* to find its
+   `op` and `subject`; it MUST NOT interpret the application `data`, which it forwards
+   verbatim. Routing stays O(subject), independent of payload meaning.
 5. **Native to norikit, open to everyone.** First‑party tools get standardized
    subjects and payloads; third parties can publish, subscribe, and register their
    own hotkey bindings on equal footing.
@@ -36,7 +39,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are used as in RFC 211
   scope for v1.
 - Not a durable message queue. Delivery is best‑effort and in‑memory; there is no
   persistence, replay, or guaranteed ordering across subjects.
-- Not an RPC framework. A minimal request/response (ack + correlation id) exists for
+- Not an RPC framework. A minimal request/response (`id` + `ack`/`err`) exists for
   control messages, but NWP is fundamentally fire‑and‑forget pub/sub.
 
 ---
@@ -45,30 +48,30 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are used as in RFC 211
 
 noricut is a **hub (broker)**. Every other participant is a **client** that holds one
 persistent connection to the hub. A client may act in any combination of three roles,
-declared in its `HELLO`:
+declared in its `hello`:
 
 | Role | Meaning |
 |------|---------|
-| `PUB` | May publish messages onto subjects. |
-| `SUB` | May subscribe to subjects and receive deliveries. |
-| `BIND` | May register/After‑unregister OS hotkey bindings that publish to subjects. |
+| `pub` | May publish messages onto subjects. |
+| `sub` | May subscribe to subjects and receive deliveries. |
+| `bind` | May register/unregister OS hotkey bindings that publish to subjects. |
 
 The hub itself is the canonical publisher of key events: it owns the OS event tap and,
 on a chord match, publishes to the subject configured for that binding. From a
 subscriber's point of view there is no difference between "a key fired" and "another
-tool published" — both arrive as a `DELIVER` frame on a subject. This uniformity is
+tool published" — both arrive as a `msg` from the hub on a subject. This uniformity is
 deliberate: it is what makes noricut simultaneously a hotkey daemon *and* an event bus.
 
 ```
                        ┌─────────────────────────────┐
   OS keyboard  ───────▶│  noricut hub                │
   event tap            │   • binding table (trie)    │
-                       │   • subject router (trie)   │──DELIVER──▶ noribar (SUB)
-  third‑party  ──PUB──▶│   • per‑client send queues  │──DELIVER──▶ window mgr (SUB)
-  tool                 │   • peer‑cred auth          │──DELIVER──▶ your script host
+                       │   • subject router (trie)   │──msg──▶ noribar (sub)
+  third‑party  ──pub──▶│   • per‑client send queues  │──msg──▶ window mgr (sub)
+  tool                 │   • peer‑cred auth          │──msg──▶ your script host
                        └─────────────────────────────┘
-       ▲                                                              │
-       └──────────────────────── BIND ────────────────────────────--─┘
+       ▲                                                        │
+       └──────────────────────── bind ──────────────────────---─┘
             (a tool registers "cmd-alt-h" → subject, delivered back to itself)
 ```
 
@@ -91,17 +94,14 @@ deliberate: it is what makes noricut simultaneously a hotkey daemon *and* an eve
 `SOCK_STREAM` (not `SOCK_DGRAM`/`SOCK_SEQPACKET`) is mandated for the baseline because
 it is the only Unix‑socket type with reliable, well‑behaved support on *all* targets —
 notably macOS, whose `AF_UNIX` `SOCK_SEQPACKET` support is historically absent. Stream
-sockets do not preserve message boundaries, which is why NWP frames are
-length‑prefixed (§4).
+sockets do not preserve message boundaries, which is why NWP frames are newline‑delimited
+(§4).
 
 ### 3.2 Optional optimizations
 
 - **Abstract namespace (Linux only):** the hub MAY additionally bind an abstract socket
   `@noricut/nwp` to avoid filesystem cleanup. Clients SHOULD prefer the path‑based
   socket for portability.
-- **`SOCK_SEQPACKET` (Linux only):** the hub MAY offer a SEQPACKET endpoint as a
-  perf option; on it the length prefix is redundant but MUST still be sent so the same
-  parser works on both endpoints.
 
 ### 3.3 Fallback: TCP loopback
 
@@ -110,131 +110,146 @@ For platforms or sandboxes without usable `AF_UNIX`, the hub MAY listen on
 TCP is **opt‑in** and carries weaker security guarantees (any local process may
 connect); peer authentication (§8) becomes mandatory when TCP is enabled.
 
+The TCP fallback is also the universal‑reach backstop: any language that can open a TCP
+socket — with no Unix‑socket support and no extra dependency — can speak NWP.
+
 ---
 
 ## 4. Framing
 
-Every message — in both directions — is a single frame:
+### 4.1 Default: newline‑delimited JSON (NDJSON)
+
+Every message — in both directions — is **one JSON object on a single line, terminated
+by a single line feed** (`\n`, `0x0A`):
 
 ```
-┌────────────┬───────────────────────────┐
-│  u32 LEN   │   BODY  (LEN bytes)        │
-│ little‑end │                            │
-└────────────┴───────────────────────────┘
+{"op":"pub","subject":"key.focus.west","data":{"chord":"cmd-alt-h"}}\n
 ```
 
-- `LEN` is an unsigned 32‑bit **little‑endian** integer: the number of bytes in `BODY`.
-  Little‑endian is mandated (not network order) because every mainstream target is
-  little‑endian and it avoids a byte‑swap on the hot path; clients on a big‑endian host
-  MUST byte‑swap.
-- `LEN` MUST NOT exceed `MaxFrame` (default `1 MiB`, negotiable down in `HELLO`). A frame
-  exceeding the peer's advertised limit MUST be answered with `ERR` and the connection
-  closed.
-- Frames may be pipelined back‑to‑back in a single `write()`/`read()`. A reader MUST be
-  prepared for partial frames and for multiple frames per read.
+- The line is UTF‑8 JSON. Because JSON encoders escape literal newlines inside strings
+  (as `\n`), a serialized JSON object never contains a raw `0x0A`; the byte therefore
+  unambiguously delimits messages.
+- A reader frames by reading bytes up to the next `\n`, then parsing the preceding bytes
+  as one JSON object. This is exactly what `readline`, `bufio.Scanner`,
+  `socket.makefile()`, and friends already do — **the framing layer is the standard
+  library**, in every direction.
+- A reader MUST tolerate partial lines (a read that ends mid‑line) and coalesced lines
+  (multiple `\n`‑terminated objects in one read). Stdlib line iterators handle both.
+- A line (excluding the terminating `\n`) MUST NOT exceed `MaxFrame` (default `1 MiB`,
+  negotiable in `hello`). An over‑long line MUST be answered with `err`
+  (`code=frame_too_large`) and the connection closed.
+- Pretty‑printing is **forbidden**: every message MUST be a single physical line.
+  Insignificant whitespace inside the object is allowed but pointless.
 
-Length‑prefixing (vs. a delimiter) means a reader never scans the payload, payloads may
-contain any bytes including NUL, and the broker can `writev` one buffer to many
-subscribers without inspecting it.
+Newline framing (vs. a binary length prefix) was chosen because the cost of locating a
+message boundary is identical to "read a line," which needs no protocol‑specific code in
+any mainstream language. See Appendix A for the opt‑in binary framing for payloads that
+need to be byte‑exact or are large.
+
+### 4.2 Why JSON does not slow the hot path
+
+The hub builds the outgoing `msg` line **once** per event and `writev`s that single byte
+buffer to every matching subscriber (§9, §11) — fan‑out is one serialization, N writes,
+unchanged from a binary design. For hub‑published key events the line is largely
+**precomputable per binding** (subject and static `data` are known when the binding is
+registered); only the small `meta` tail varies, so the allocation‑free hot‑path goal
+(D2) is preserved. A per‑message JSON parse on the receiving side is sub‑microsecond and
+happens off the hub, at keyboard‑event rates where it is irrelevant.
 
 ---
 
-## 5. Message body
+## 5. Message format
 
-The body is a small fixed header followed by two length‑prefixed byte strings. There is
-**no** mandatory schema beyond this; in particular the **payload is opaque** to the hub.
+Every message is a JSON object. Exactly one field is mandatory in all messages:
 
-```
-Offset  Size  Field        Notes
-------  ----  -----------  -------------------------------------------------------
-0       1     ver          Protocol major version. v1 = 0x01.
-1       1     type         Message type (§6).
-2       2     flags        u16 LE bit flags (§5.1).
-4       4     corr         u32 LE correlation id. 0 = none. Echoed in ACK/ERR.
-8       2     subj_len     u16 LE length of subject in bytes (0..=65535).
-10      2     ct           u16 LE payload content‑type hint (§5.2).
-12      subj_len           subject: UTF‑8, dotted tokens (§7). NOT NUL‑terminated.
-…       4     pay_len      u32 LE length of payload in bytes.
-…       pay_len            payload: opaque bytes, forwarded verbatim.
-```
+| Field | Type | Meaning |
+|-------|------|---------|
+| `op`  | string | The operation (§6). Unknown ops → `err(code=unknown_op)`. |
 
-The header is fixed‑offset and integer‑only: a hot‑path reader extracts `type`,
-`subj`, and the payload slice with three integer reads and zero allocation. The hub
-reads `type` and `subj` only; `ct` and `payload` are passed through untouched.
+The remaining top‑level fields are per‑op. The common ones:
 
-### 5.1 Flags
+| Field | Type | Used by | Meaning |
+|-------|------|---------|---------|
+| `subject` | string | `sub`,`unsub`,`pub`,`msg`,`bind`,`unbind` | Dotted subject (§7). |
+| `data` | any JSON value | `pub`,`msg` | The application payload. Opaque to the hub; forwarded verbatim. |
+| `sid` | string/number | `sub`,`unsub`,`msg` | Client‑chosen subscription id, echoed on deliveries. |
+| `id` | string/number | any request | Correlation id; echoed in the matching `ack`/`err`/`pong`. Absent = fire‑and‑forget. |
+| `meta` | object | `msg` | Hub‑appended origin metadata (§5.2). |
 
-| Bit  | Name           | Meaning |
-|------|----------------|---------|
-| 0    | `WANT_ACK`     | Sender requests an `ACK` (or `ERR`) carrying the same `corr`. |
-| 1    | `LOSSY`        | Hint: this message MAY be dropped under backpressure (§9). |
-| 2    | `RETAINED`     | Publish: hub retains the last value on this subject and delivers it to new subscribers (e.g. current mode). |
-| 3    | `NO_ECHO`      | Publish: do not deliver back to the publishing connection even if it matches. |
-| 4–15 | reserved       | MUST be 0 in v1; receivers MUST ignore unknown bits. |
+Receivers MUST ignore unknown top‑level fields (forward compatibility). Field order is
+not significant.
 
-### 5.2 Content‑type hint (`ct`)
+### 5.1 The `data` payload
 
-`ct` is advisory metadata so subscribers can decode without out‑of‑band agreement. The
-hub never acts on it.
+`data` is any JSON value and is **opaque to the hub** — it is never inspected and is
+re‑emitted byte‑for‑byte in the `msg`. The default noricut convention is a JSON
+**object** of `key → value`:
 
-| Value | Encoding |
-|-------|----------|
-| `0`   | `kv` — the default noricut envelope: a sequence of `key=value` pairs, each field NUL‑terminated, UTF‑8 (§5.3). |
-| `1`   | `raw` — uninterpreted bytes. |
-| `2`   | `utf8` — a bare UTF‑8 string. |
-| `3`   | `json` — UTF‑8 JSON. |
-| `4`   | `msgpack` |
-| `5`   | `cbor` |
-| 6–1023 | reserved for future noricut use |
-| 1024+ | application‑private; agree out of band |
-
-### 5.3 The default `kv` envelope
-
-The default payload encoding is intentionally the simplest thing that is both
-shell‑friendly and zero‑dependency: NUL‑terminated `key=value` records.
-
-```
-app=Safari\0space=3\0modifiers=cmd,alt\0
+```json
+{"chord":"cmd-alt-h","app":"Safari","space":3}
 ```
 
-- Trivially produced in a shell: `printf 'app=%s\0space=%s\0' "$APP" "$SPACE"`.
-- Trivially parsed anywhere: split on `\0`, then on the first `=`.
-- Mirrors the environment‑variable mental model `skhd`/`sketchybar` users already have,
-  which is exactly the data those tools pass to spawned commands — except here it is
-  delivered without spawning anything.
+This replaces the old NUL‑terminated `kv` envelope with the same mental model — a flat
+bag of named fields — now expressed as ordinary JSON every language already decodes.
+Applications MAY put any JSON value in `data` (string, number, array, nested object);
+norikit first‑party subjects use a flat object so values map cleanly onto environment
+variables when handed to the `exec` escape hatch.
 
-Structured callers SHOULD set `ct` to `json`/`msgpack`/`cbor` and use those instead.
+Bytes that are not valid UTF‑8 / not representable in JSON (raw binary blobs) MUST use
+the opt‑in binary framing of Appendix A; they are out of scope for the default mode.
+
+### 5.2 Hub‑appended `meta`
+
+On a `msg`, the hub MAY attach a `meta` object with origin information. It is namespaced
+under `meta` (rather than mixed into `data`) so the publisher's `data` stays exact:
+
+| `meta` key | Meaning |
+|-----------|---------|
+| `src` | Publisher client id (`0` = the hub itself, i.e. a key event). |
+| `ts`  | Hub monotonic timestamp (ms) when the message was emitted. |
+| `seq` | Per‑hub monotonic sequence number. |
+
+Subscribers that do not care simply ignore `meta`.
 
 ---
 
-## 6. Message types
+## 6. Operations (`op`)
 
-| `type` | Name         | Dir    | Purpose |
-|--------|--------------|--------|---------|
-| `0x01` | `HELLO`      | C→H    | Open a session: declare version, name, roles, caps, optional auth. |
-| `0x02` | `WELCOME`    | H→C    | Accept: assigned client id, negotiated version, server caps & limits. |
-| `0x03` | `SUBSCRIBE`  | C→H    | Subscribe a subject pattern with delivery options. |
-| `0x04` | `UNSUBSCRIBE`| C→H    | Remove a previously added subscription. |
-| `0x05` | `PUBLISH`    | C→H    | Publish a message onto a subject. |
-| `0x06` | `DELIVER`    | H→C    | Delivery of a published message to a matching subscriber. |
-| `0x07` | `BIND`       | C→H    | Register an OS hotkey chord that publishes to a subject. |
-| `0x08` | `UNBIND`     | C→H    | Remove a binding owned by this client. |
-| `0x09` | `MODE`       | C→H    | Enter/exit a modal binding layer (§7.3). |
-| `0x0A` | `ACK`        | H→C    | Success response to a `WANT_ACK` request; echoes `corr`. |
-| `0x0B` | `ERR`        | H→C    | Failure response; echoes `corr`; payload is `kv` with `code`/`msg`. |
-| `0x0C` | `PING`       | C↔H    | Keepalive / RTT probe. |
-| `0x0D` | `PONG`       | C↔H    | Reply to `PING`; echoes `corr`. |
-| `0x0E` | `GOODBYE`    | C→H    | Graceful close; hub releases the client's subs and bindings. |
+| `op` | Dir | Purpose |
+|------|-----|---------|
+| `hello`   | C→H | Open a session: declare version, name, roles, caps, framing, optional auth. |
+| `welcome` | H→C | Accept: assigned client id, negotiated version, server caps & limits. |
+| `sub`     | C→H | Subscribe a subject pattern (`subject`, `sid`, options). |
+| `unsub`   | C→H | Remove a subscription by `sid`. |
+| `pub`     | C→H | Publish `data` onto `subject`. |
+| `msg`     | H→C | Delivery of a published message to a matching subscriber. |
+| `bind`    | C→H | Register an OS hotkey chord that publishes to a subject. |
+| `unbind`  | C→H | Remove a binding owned by this client. |
+| `mode`    | C→H | Enter/exit a modal binding layer (§7.3). |
+| `ack`     | H→C | Success response to a request carrying `id`; echoes `id`. |
+| `err`     | H→C | Failure response; echoes `id`; carries `code` and `msg`. |
+| `ping`    | C↔H | Keepalive / RTT probe. |
+| `pong`    | C↔H | Reply to `ping`; echoes `id`. |
+| `bye`     | C→H | Graceful close; hub releases the client's subs and bindings. |
 
-`C→H` = client to hub, `H→C` = hub to client. Unknown `type` values MUST be answered
-with `ERR(code=unknown_type)` and otherwise ignored (forward compatibility).
+`C→H` = client to hub, `H→C` = hub to client. Unknown `op` values MUST be answered with
+`err(code=unknown_op)` and otherwise ignored (forward compatibility).
 
-`DELIVER` is structurally a `PUBLISH` re‑emitted by the hub. Subscribers therefore parse
+A `msg` is structurally a `pub` re‑emitted by the hub. Subscribers therefore parse
 exactly one delivery shape regardless of whether a human's keypress or another tool was
-the origin. Origin metadata (publisher client id, monotonic timestamp) is appended to
-the `kv` payload by the hub under reserved keys prefixed `_` (e.g. `_src`, `_ts`,
-`_seq`) and only when the payload `ct` is `kv`; for other content‑types this metadata is
-omitted to keep the payload byte‑exact.
+the origin; the only difference is the hub‑added `meta`.
+
+### 6.1 Request options as fields
+
+What were binary bit‑flags are now optional boolean fields on the relevant op, ignored
+by simple clients:
+
+| Field | On | Meaning |
+|-------|----|---------|
+| `ack: true`    | any request | Sender requests an `ack` (or `err`) carrying the same `id`. |
+| `lossy: true`  | `sub`,`pub` | This message MAY be dropped first under backpressure (§9). |
+| `retain: true` | `pub` | Hub retains the last value on this subject and delivers it to new subscribers (e.g. current mode). |
+| `no_echo: true`| `pub` | Do not deliver back to the publishing connection even if it matches. |
 
 ---
 
@@ -269,30 +284,34 @@ subscribers can wildcard‑subscribe to whole families.
 ### 7.3 Modes
 
 Modes are sticky binding layers (the `skhd` "mode" feature) modeled as state in the hub.
-Entering mode `m` causes the hub to publish `mode.m.enter` (with `RETAINED`) and to make
-that mode's bindings active. `MODE` messages let a client drive modes programmatically;
+Entering mode `m` causes the hub to publish `mode.m.enter` (with `retain`) and to make
+that mode's bindings active. `mode` messages let a client drive modes programmatically;
 bindings may also switch modes declaratively in config.
 
 ---
 
 ## 8. Session lifecycle & authentication
 
-1. Client connects, sends `HELLO` (`ver`, name, roles, `MaxFrame`, optional `token`).
+1. Client connects, sends `hello`:
+   `{"op":"hello","ver":1,"name":"mytool","roles":["sub"],"max_frame":1048576}`.
+   Optional: `"framing":"binary"` (Appendix A), `"token":"…"` (TCP).
 2. Hub authenticates the peer:
    - **Unix socket:** the hub MUST verify peer credentials via `SO_PEERCRED` (Linux) or
      `LOCAL_PEERCRED`/`getpeereid` (macOS/BSD) and MUST reject a UID that does not match
      the hub's own UID. No token is required on a `0600` user‑owned socket.
    - **TCP:** a shared `token` (from `$NORICUT_TOKEN` or config) is REQUIRED; the hub
-     MUST reject mismatches with `ERR(code=unauthorized)` and close.
-3. Hub replies `WELCOME` (client id, negotiated `ver` = `min(client, hub)`, caps,
-   effective `MaxFrame`, retained‑subject support flag).
-4. Client may now `SUBSCRIBE` / `PUBLISH` / `BIND` per its roles. A message requiring a
-   role the client did not request MUST be answered `ERR(code=forbidden_role)`.
-5. Either side MAY `PING`; a peer that misses `KeepaliveMax` (default 30 s) of liveness
+     MUST reject mismatches with `err(code=unauthorized)` and close.
+3. Hub replies
+   `{"op":"welcome","id":7,"ver":1,"framing":"ndjson","max_frame":1048576,"caps":[…]}`
+   (assigned client id, negotiated `ver` = `min(client, hub)`, effective framing and
+   `max_frame`, capability list).
+4. Client may now `sub` / `pub` / `bind` per its roles. A message requiring a role the
+   client did not request MUST be answered `err(code=forbidden_role)`.
+5. Either side MAY `ping`; a peer that misses `KeepaliveMax` (default 30 s) of liveness
    MAY be disconnected. The hub publishes `noricut.client.gone` when a client drops.
 
-Version negotiation is by the single `ver` byte; v1 hubs and clients interoperate by
-agreeing on the lower major and ignoring unknown flags/types. There is no minor version
+Version negotiation is by the single integer `ver`; v1 hubs and clients interoperate by
+agreeing on the lower major and ignoring unknown fields/ops. There is no minor version
 on the wire — capabilities, not versions, gate optional features.
 
 ---
@@ -303,15 +322,13 @@ A GUI subscriber that stalls MUST NOT be able to delay key dispatch to other
 subscribers. The hub therefore:
 
 - Uses **non‑blocking** writes and one **bounded** send queue per client
-  (default `SendQueueMax` = 1024 frames or 4 MiB, whichever first).
+  (default `SendQueueMax` = 1024 messages or 4 MiB, whichever first).
 - On overflow, applies the per‑subscription **delivery policy**:
-  - `lossy` (default for `LOSSY`‑flagged or `key.`/`mode.` traffic): drop the **oldest**
-    queued frame for that client and enqueue the new one. A key event is only useful
+  - `lossy` (default for `lossy`‑flagged or `key.`/`mode.` traffic): drop the **oldest**
+    queued message for that client and enqueue the new one. A key event is only useful
     fresh; dropping a stale one is correct.
   - `reliable`: stop reading the offending client and, if the queue stays full past
-    `SlowConsumerGrace` (default 2 s), disconnect it with `ERR(code=slow_consumer)`.
-    Reliable subscribers that fall behind are removed rather than allowed to back up the
-    whole hub.
+    `SlowConsumerGrace` (default 2 s), disconnect it with `err(code=slow_consumer)`.
 - Never blocks the accept/dispatch loop on any single client.
 
 This is the crux of beating `skhd` on *consistency*, not just mean latency: a persistent
@@ -326,28 +343,60 @@ has unbounded tail latency under memory pressure.
 |--|--------------|---------------|
 | Hot‑path syscalls | `fork`+`execve` (×1–2) + dynamic link + shell init + `connect` | one `write` to an open fd |
 | Typical latency | ~1–5+ ms, high variance | low‑single‑digit µs, low variance |
-| Allocations per action | shell heap, argv, env copy | none on the hot path |
+| Allocations per action | shell heap, argv, env copy | none on the hot path (line precomputed per binding) |
 | Failure mode under load | unbounded (process table, swap) | bounded (drop‑oldest / disconnect) |
 | Power | wakes scheduler, pages in `sh` | one wakeup on an existing fd |
 
 An escape hatch is still available: a binding may target the hub's built‑in `exec`
 handler to run a shell command for the rare case that genuinely needs one — backward
 compatible with the `skhd` model, but off the hot path by default and explicitly opted
-into per binding.
+into per binding. This is the universal fallback for third‑party apps that expose **no**
+integration surface: noricut publishes to subscribers when it can, and runs a command
+when it cannot.
 
 ---
 
-## 11. Worked example (default `kv`)
+## 11. Worked example (default NDJSON)
 
 A user presses `cmd‑alt‑h`, bound in config to publish `key.focus.west`.
 
-1. Hub's event tap matches the chord, builds one frame once:
-   `type=DELIVER, subj="key.focus.west", ct=kv, payload="chord=cmd-alt-h\0_src=0\0_ts=…\0"`.
+A complete subscriber, no libraries:
+
+```javascript
+// Node.js — stdlib only
+import net from 'net'
+import readline from 'readline'
+
+const sock = net.createConnection({ path: process.env.NORICUT_SOCK })
+sock.write('{"op":"hello","ver":1,"roles":["sub"]}\n')
+sock.write('{"op":"sub","subject":"key.>","sid":1}\n')
+
+readline.createInterface({ input: sock }).on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.op === 'msg') console.log(m.subject, m.data)   // key.focus.west { chord: 'cmd-alt-h' }
+})
+```
+
+```python
+# Python — stdlib only
+import os, socket, json
+s = socket.socket(socket.AF_UNIX); s.connect(os.environ["NORICUT_SOCK"])
+s.sendall(b'{"op":"hello","ver":1,"roles":["sub"]}\n')
+s.sendall(b'{"op":"sub","subject":"key.>","sid":1}\n')
+for line in s.makefile():
+    m = json.loads(line)
+    if m["op"] == "msg":
+        print(m["subject"], m["data"])
+```
+
+On the wire:
+
+1. Hub's event tap matches the chord and builds one line once:
+   `{"op":"msg","subject":"key.focus.west","data":{"chord":"cmd-alt-h"},"meta":{"src":0,"ts":1748649600123,"seq":42}}\n`.
 2. Hub looks up `key.focus.west` in the subject trie → `[fd_noribar, fd_wm]`.
-3. Hub `writev`s the *same* buffer to both fds. No payload parse, no copy beyond the
-   socket buffers.
-4. The window manager (a long‑running `SUB` client) reads the frame, splits the payload
-   on `\0`, and focuses the western window in‑process.
+3. Hub `writev`s the *same* line buffer to both fds. No re‑serialization per subscriber.
+4. The window manager (a long‑running `sub` client) reads the line, `JSON.parse`s it,
+   and focuses the western window in‑process.
 
 No process was spawned at any point after the daemons started.
 
@@ -357,21 +406,65 @@ No process was spawned at any point after the daemons started.
 
 A minimal conforming client MUST:
 
-- frame with `u32` LE length prefixes and tolerate partial/coalesced reads;
-- send a valid `HELLO` and wait for `WELCOME` before other traffic;
-- ignore unknown `flags` bits and reply `ERR` to unknown `type`s rather than crashing;
-- byte‑swap integers if running on a big‑endian host.
+- frame by reading lines terminated by `\n` and tolerate partial/coalesced reads;
+- serialize every message as a single‑line UTF‑8 JSON object terminated by one `\n`;
+- send a valid `hello` and wait for `welcome` before other traffic;
+- ignore unknown top‑level fields and unknown `op`s rather than crashing.
 
 A minimal conforming hub MUST:
 
-- enforce peer‑credential auth on the Unix socket and `0600` socket permissions;
-- route on subject only and forward payloads byte‑exact (modulo `_`‑prefixed `kv`
-  metadata it appends);
+- parse the JSON envelope, route on `subject` only, and forward `data` verbatim
+  (re‑emitting it JSON‑exact, modulo the hub‑added `meta`);
 - implement bounded per‑client queues with a documented slow‑consumer policy;
+- enforce peer‑credential auth on the Unix socket and `0600` socket permissions;
 - never block dispatch on a single client.
+
+---
+
+## Appendix A — Opt‑in binary framing (capability `framing=binary`)
+
+The default NDJSON mode cannot carry raw (non‑UTF‑8) bytes and pays a small encode/parse
+cost. A client that needs **byte‑exact binary payloads** or **large zero‑copy bodies**
+MAY request binary framing in `hello` (`"framing":"binary"`); the hub confirms it in
+`welcome`. The negotiation is per‑connection; NDJSON and binary clients coexist on the
+same hub and interoperate (the hub transcodes on fan‑out when a subject has subscribers
+of both framings).
+
+In binary mode, every frame is:
+
+```
+┌────────────┬───────────────────────────┐
+│  u32 LEN   │   BODY  (LEN bytes)        │
+│ little‑end │                            │
+└────────────┴───────────────────────────┘
+```
+
+- `LEN` is an unsigned 32‑bit **little‑endian** byte count of `BODY`; clients on a
+  big‑endian host MUST byte‑swap. Little‑endian avoids a swap on every mainstream target.
+- `BODY` is a fixed‑offset header followed by the subject and an opaque payload:
+
+```
+Offset  Size  Field        Notes
+------  ----  -----------  -------------------------------------------------------
+0       1     ver          Protocol major version. v1 = 0x01.
+1       1     op           Operation code mirroring §6 (hello=0x01 … bye=0x0E).
+2       2     flags        u16 LE bit flags (WANT_ACK, LOSSY, RETAINED, NO_ECHO).
+4       4     corr         u32 LE correlation id. 0 = none. Echoed in ack/err.
+8       2     subj_len     u16 LE length of subject in bytes.
+10      2     ct           u16 LE payload content‑type hint (raw/utf8/json/msgpack/cbor).
+12      subj_len           subject: UTF‑8, dotted tokens (§7). NOT NUL‑terminated.
+…       4     pay_len      u32 LE length of payload in bytes.
+…       pay_len            payload: opaque bytes, forwarded verbatim.
+```
+
+This is the original NWP framing; it remains available for performance‑critical or
+binary‑safe first‑party clients. The routing rules, subjects, backpressure, and auth of
+the main spec apply unchanged — only the framing/encoding of the envelope differs.
 
 ---
 
 *Open questions that affect this spec live in
 [`knowledge-base/open-questions.md`](knowledge-base/open-questions.md). Changes here
 MUST be reflected in [`knowledge-base/decisions.md`](knowledge-base/decisions.md).*
+</content>
+</invoke>

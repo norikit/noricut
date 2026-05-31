@@ -26,7 +26,7 @@ Weighted by relevance to *this* daemon:
 | Memory safety | Many concurrent connections, reused frame buffers, opaque payloads → classic use‑after‑free / overflow territory. | ★★★★★ |
 | Tail latency / determinism | The whole point is bounded, jitter‑free dispatch. GC pauses or unpredictable allocation hurt the headline feature. | ★★★★☆ |
 | Idle footprint (CPU/RAM) | Must idle at ~0% like noribar. Runtime/GC overhead works against this. | ★★★★☆ |
-| FFI / bindability | We ship a C‑ABI client lib (`libnwp`) that every language binds. The core should expose or interop with a C ABI cleanly. | ★★★★☆ |
+| FFI / bindability | **Downgraded by D13:** NDJSON makes a client "read a line, parse JSON, write a line," so no `libnwp` is required for adoption. A C ABI still has value for *optional* wrappers and the binary‑framing opt‑in, but it is no longer load‑bearing. | ★★☆☆☆ |
 | Raw throughput | Real but secondary — dispatch is tiny; correctness and tails matter more than peak ops/sec. | ★★★☆☆ |
 | Portability of toolchain | Must build cleanly on macOS/Linux/BSD/Windows. | ★★★☆☆ |
 | Dev velocity / maintainability | Small team; the code should stay legible and safe to change. | ★★★☆☆ |
@@ -132,10 +132,12 @@ tail‑latency/footprint respectively.
   0%, and exposes `libnwp` as a `cdylib` for every other language. The costs (compile
   times, learning curve, borrow‑checker friction on the connection graph) are one‑time and
   bounded for a codebase this size.
-- **Client library → ship the C ABI from the Rust `cdylib`** (`libnwp`), so C, Python, Go,
-  Lua, etc. all bind one artifact. A hand‑written C client may also be kept as a
-  reference/conformance implementation because the protocol is small enough to make that
-  cheap.
+- **Client library → optional (D13).** With NDJSON the default wire, inline clients are
+  ~8 lines of stdlib in any language, so no `libnwp` is required for adoption. We MAY still
+  ship a C ABI from the Rust `cdylib` later for languages that prefer linking and for the
+  binary‑framing opt‑in, plus thin idiomatic wrappers — but these are conveniences, not the
+  critical path. A reference NDJSON client in a couple of languages doubles as the
+  conformance suite.
 - **macOS event‑tap frontend → Swift**, sharing idioms and tooling with noribar and using
   `CGEventTap` natively. It talks to the core purely over NWP, so this choice is
   independent of the core.

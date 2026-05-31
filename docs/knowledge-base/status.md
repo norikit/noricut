@@ -13,7 +13,7 @@ first spike brief.
 - noricut Wire Protocol (NWP) v1 specified (`../PROTOCOL.md`).
 - Architecture split into portable broker core + per‑OS event‑tap frontends
   (`architecture.md`).
-- Locked decisions D1–D12 recorded (`decisions.md`).
+- Locked decisions D1–D13 recorded (`decisions.md`).
 - Implementation‑language comparison written; **Rust recommended** for the core, Swift for
   the macOS frontend (`language-evaluation.md`).
 - First spike brief drafted: end‑to‑end framing + routing PoC (`../../tasks/`).
@@ -26,5 +26,12 @@ first spike brief.
 ## Changelog
 
 ### 2026‑05‑31
+- **Wire encoding switched to newline‑delimited JSON (NDJSON) as the default** (new D13;
+  supersedes D4, amends D5). Rationale: make third‑party integration trivial in any
+  language with no client library or FFI — "read a line, parse JSON, write a line," ~8
+  lines (PROTOCOL §11). The length‑prefixed binary framing survives as an opt‑in
+  (`framing=binary`, PROTOCOL Appendix A) for byte‑exact/large payloads; the hot path is
+  unaffected (per‑binding lines are precomputable). Updated PROTOCOL.md, decisions.md,
+  architecture.md, glossary.md.
 - Repository bootstrapped from empty: README, CLAUDE.md, knowledge base, PROTOCOL.md,
   language evaluation, and the first task/spike. Design phase opened.

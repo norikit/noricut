@@ -92,7 +92,7 @@ noricut.bind("cmd - return", { exec = "open -na Alacritty" })
 
 -- in‑process Lua handler (no external subscriber needed)
 noricut.on("key.focus.west", function(e)
-  -- e.kv.chord, e.kv._ts, …
+  -- e.data.chord, e.meta.ts, …
 end)
 ```
 
@@ -102,18 +102,22 @@ published so subscribers can refresh derived state.
 
 ## 6. Client libraries
 
-The protocol is small enough to implement inline, but the project will ship thin clients
-so adoption is trivial:
+With NDJSON as the default wire (D13), a client *is* "read a line, parse JSON, write a
+line" — so there is no mandatory client library to write or maintain, and no FFI. Inline
+implementation is the supported, documented path (see PROTOCOL §11 for full Node and
+Python subscribers in ~8 lines each). The project will still ship **optional** idiomatic
+convenience wrappers where ergonomics help adoption:
 
-- A **C client** (`libnwp`, C ABI) that every other language can bind via FFI.
-- Idiomatic wrappers (Swift for noribar, plus at least one of Rust/Go/Python) layered on
-  the C ABI or implemented natively.
+- Thin, native wrappers (Swift for noribar, plus at least one of Rust/Go/Python) — each
+  implemented directly on the language's stdlib sockets + JSON, not on a shared C ABI.
 - noribar integration mirrors its own provider API: `bar.subscribe("key.focus.west", cb)`
   resolves to an NWP subscription under the hood.
 
-The client surface is intentionally tiny: `connect`, `subscribe(pattern, cb)`,
-`publish(subject, payload, ct)`, `bind(chord, subject)`, `request(subject, payload) →
-ack`.
+The convenience surface is intentionally tiny: `connect`, `subscribe(pattern, cb)`,
+`publish(subject, data)`, `bind(chord, subject)`, `request(subject, data) → ack`. A C‑ABI
+`libnwp` is no longer on the critical path; it may still be offered later for languages
+that prefer linking over a few lines of socket code, and for the opt‑in binary framing
+(PROTOCOL Appendix A) where a shared codec earns its keep.
 
 ## 7. Platform notes
 

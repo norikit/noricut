@@ -27,8 +27,10 @@ See `decisions.md` for the full list with rationale. The load‑bearing ones:
 - **Hub/broker topology**, one OS event tap (D1).
 - **No process spawn on the hot path** — a keypress is a socket write (D2).
 - **Transport:** Unix‑domain `SOCK_STREAM`; TCP loopback opt‑in fallback (D3).
-- **Framing:** `u32` little‑endian length prefix, fixed‑offset header (D4).
-- **Content‑agnostic routing:** payloads opaque; default `kv` envelope (D5).
+- **Framing/encoding:** newline‑delimited JSON by default; length‑prefixed binary is an
+  opt‑in (D13, supersedes D4).
+- **Subject‑only routing:** hub parses the JSON envelope but treats application `data` as
+  opaque, forwarded verbatim (D5, amended by D13).
 - **Subjects:** dotted tokens with `*`/`>` wildcards (D6).
 - **Config:** embedded, hot‑reloadable Lua (D8).
 - **License:** AGPL‑3.0 (D11).

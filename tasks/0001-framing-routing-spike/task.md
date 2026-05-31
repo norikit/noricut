@@ -23,9 +23,11 @@ keyboard tap yet — a synthetic publisher stands in for the event tap.
 
 1. Hub that listens on an `AF_UNIX` `SOCK_STREAM` socket (PROTOCOL §3.1) and runs a
    non‑blocking `epoll`/`kqueue` loop (architecture.md §3).
-2. Frame codec: `u32` LE length prefix + fixed‑offset header (PROTOCOL §4–5). Must handle
-   partial and coalesced reads.
-3. Minimal control plane: `HELLO`/`WELCOME`, `SUBSCRIBE`, `PUBLISH`→`DELIVER`.
+2. Frame codec: newline‑delimited JSON — read up to `\n`, parse one JSON object, write a
+   single‑line object + `\n` (PROTOCOL §4–5). Must handle partial and coalesced reads.
+   SHOULD also exercise the opt‑in binary framing (Appendix A) for the allocation test
+   below, since the precomputed‑line claim applies to both.
+3. Minimal control plane: `hello`/`welcome`, `sub`, `pub`→`msg`.
 4. Subject token trie with `*`/`>` wildcard matching (PROTOCOL §7.1).
 5. Bounded per‑client send queue with `lossy` drop‑oldest (PROTOCOL §9).
 6. A load harness: 1 synthetic publisher → hub → {1, 8, 64} subscribers, fixed‑rate and
@@ -38,9 +40,9 @@ beyond a peer‑cred check, Windows.
 
 ## Success criteria
 
-- **Correctness:** every non‑dropped `DELIVER` is byte‑exact with the published payload;
-  wildcard matches resolve exactly; framing survives partial/coalesced reads (fuzz the
-  reader).
+- **Correctness:** every non‑dropped `msg` carries JSON‑exact `data` with the published
+  payload; wildcard matches resolve exactly; line framing survives partial/coalesced reads
+  (fuzz the reader).
 - **Latency:** median publish→deliver under ~10 µs and p99 under ~50 µs for the 8‑subscriber
   case on a developer laptop; capture the full distribution, not just the mean (tail is the
   point — see PROTOCOL §10).

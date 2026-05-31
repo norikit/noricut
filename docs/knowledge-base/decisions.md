@@ -24,16 +24,19 @@ secure‑by‑file‑permission, and present on macOS, Linux, BSD, and Windows 1
 reliable `SOCK_SEQPACKET`, so stream + length framing is the portable baseline.
 
 ### D4 — Length‑prefixed binary framing (`u32` little‑endian), fixed‑offset header
-**Why:** delimiter‑free framing lets payloads carry any bytes, lets the broker `writev`
-without inspecting payloads, and keeps the hot‑path parser to a few integer reads with
-zero allocation. Little‑endian avoids a byte‑swap on every mainstream target.
+**Superseded by D13** as the *default*; retained as the opt‑in `framing=binary` mode
+(PROTOCOL Appendix A) for byte‑exact/large payloads.
+**Why (original):** delimiter‑free framing lets payloads carry any bytes, lets the broker
+`writev` without inspecting payloads, and keeps the hot‑path parser to a few integer reads
+with zero allocation. Little‑endian avoids a byte‑swap on every mainstream target.
 
-### D5 — The broker is content‑agnostic; payloads are opaque and forwarded verbatim
-The hub routes on the UTF‑8 *subject* only and never parses the payload. A `ct`
-content‑type hint and a default `kv` (NUL‑terminated `key=value`) envelope are provided
-for interop, but are advisory. **Why:** keeps routing O(subject), keeps the protocol free
-of a mandatory schema/serialization dependency, and lets every ecosystem use its own
-encoding.
+### D5 — The broker routes on subject only; the application payload is opaque
+**Amended by D13:** the hub now parses the JSON *envelope* (to read `op`/`subject`) but
+still does not interpret the application `data`, which it forwards verbatim. A default
+JSON‑object payload convention replaces the old `ct` hint + NUL‑terminated `kv` envelope
+(those live on only in the binary mode, D4/Appendix A). **Why:** keeps routing O(subject)
+and free of a mandatory application schema, while the envelope itself is plain JSON every
+language already decodes.
 
 ### D6 — Subjects are hierarchical dotted tokens with `*` / `>` wildcards
 **Why:** gives noricut a real event‑bus shape, maps one‑to‑one onto noribar's
@@ -63,6 +66,20 @@ key dispatch.
 
 ### D11 — License is AGPL‑3.0
 Consistent with the norikit org.
+
+### D13 — Default wire encoding is newline‑delimited JSON (NDJSON); binary framing is opt‑in
+Each message is one single‑line UTF‑8 JSON object terminated by `\n`. Supersedes D4 as the
+default framing and amends D5. The length‑prefixed binary framing of D4 survives as an
+opt‑in capability (`framing=binary`, PROTOCOL Appendix A) negotiated in `hello`, for
+byte‑exact or large payloads. **Why:** the project's core promise is *trivial third‑party
+integration in any language*. NDJSON reduces a conforming client from "write a binary
+parser (~60 lines, partial‑read state machine, integer fields)" to "read a line, parse
+JSON, write a line" — all standard‑library in every mainstream language, no FFI, no
+codegen, ~8 lines. The hot path is unaffected: the hub still serializes one line per event
+and `writev`s it to all subscribers, and per‑binding lines are precomputable, so D2's
+allocation‑free goal holds. The cost — JSON‑only (no raw binary) payloads and a tiny
+encode/parse — is irrelevant at keyboard‑event rates and recovered by the binary opt‑in
+when genuinely needed.
 
 ### D12 — Knowledge‑base‑first, task/spike methodology, never commit to `main`
 Mirrors noribar: durable decisions live here; work happens on branches and lands via PRs;

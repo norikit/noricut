@@ -42,10 +42,12 @@ noricut is two things in one small daemon:
    subject* to whichever long‑running tools subscribed to it. Those tools (noribar,
    a window manager, your own script‑host) react in‑process.
 
-It speaks the **noricut Wire Protocol (NWP)** — a small, length‑prefixed,
-OS‑/language‑agnostic protocol over a Unix‑domain socket. NWP is the contract that
-lets first‑party norikit tools *and* unrelated third‑party tooling share one hotkey
-registry and one event bus without any of them spawning processes.
+It speaks the **noricut Wire Protocol (NWP)** — a small, newline‑delimited‑JSON,
+OS‑/language‑agnostic protocol over a Unix‑domain socket. A complete client is "read a
+line, parse JSON, write a line" — standard library in every mainstream language, no
+client library and no FFI. NWP is the contract that lets first‑party norikit tools *and*
+unrelated third‑party tooling share one hotkey registry and one event bus without any of
+them spawning processes.
 
 - **Native to norikit** — noribar can `subscribe` to noricut subjects exactly like it
   subscribes to its own providers.
