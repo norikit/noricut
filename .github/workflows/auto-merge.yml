@@ -10,6 +10,5 @@ permissions:
 
 jobs:
   auto-merge:
+    if: github.event.pull_request.user.login == 'Eiluviann'
     uses: norikit/.github/.github/workflows/auto-merge.yml@main
-    with:
-      owner_login: Eiluviann
