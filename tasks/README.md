@@ -1,6 +1,6 @@
 # Tasks
 
-Every discrete unit of work on **{{PROJECT}}** — spikes, milestones, chores — lives here as
+Every discrete unit of work on **noricut** — spikes, milestones, chores — lives here as
 a **task folder**, regardless of type. This is the live view of *what is being worked on*;
 durable *design* truth lives in [`ai-docs/`](../ai-docs/), which tasks link back to via their
 `resolves:` / `decisions:` fields.
@@ -36,8 +36,8 @@ name: Human-readable task title
 type: spike                       # spike | milestone | chore
 status: ready                     # draft | ready | in-progress | blocked | complete | superseded
 verdict: n/a                      # spikes: GO | NO-GO | n/a ; others: n/a
-created: {{DATE}}
-updated: {{DATE}}
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
 resolves: [Q1]                    # open-questions this task closes (see ai-docs/open-questions.md)
 decisions: [D2]                   # decisions it produced (see ai-docs/decisions.md)
 depends_on: []                    # other task ids this one builds on
