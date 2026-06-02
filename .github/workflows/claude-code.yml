@@ -1,0 +1,19 @@
+name: Claude Code
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude:
+    if: contains(github.event.comment.body, '@claude')
+    uses: norikit/.github/.github/workflows/claude-code.yml@main
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
