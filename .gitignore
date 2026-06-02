@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Build output (TEMPLATE: keep the lines that match your stack)
+.build/          # SwiftPM
+DerivedData/     # Xcode
+node_modules/    # npm
+dist/
+target/          # Cargo
+__pycache__/
+*.log
+
+# Local env / secrets
+.env
+.env.local

@@ -1,0 +1,30 @@
+name: 🔬 Spike
+description: Time-boxed investigation to reduce uncertainty before committing to an approach.
+title: "[spike]: "
+type: Spike
+body:
+  - type: textarea
+    id: question
+    attributes: { label: Question / uncertainty, description: What must we learn or de-risk? }
+    validations: { required: true }
+  - type: input
+    id: timebox
+    attributes: { label: Time-box, description: Max effort before we stop and decide., placeholder: "1 day / Size M" }
+    validations: { required: true }
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What "done" looks like (the decision)
+      description: A spike ends in a GO/NO-GO or recommendation, not shippable code.
+      placeholder: |
+        - [ ] Verdict in ai-docs/decisions.md
+        - [ ] Any PoC under tasks/<id>/code/, not Sources/
+    validations: { required: true }
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of Done
+      options:
+        - label: Decision (GO/NO-GO) recorded in ai-docs
+        - label: Open question updated/resolved with a pointer
+        - label: Findings summarized in the issue

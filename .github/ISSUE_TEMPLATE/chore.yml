@@ -1,0 +1,22 @@
+name: 🧹 Chore
+description: Maintenance, tooling, refactor, or infra — no direct user-facing value.
+title: "[chore]: "
+type: Chore
+body:
+  - type: textarea
+    id: what
+    attributes: { label: What & why, description: "The change and why (debt, tooling, refactor)." }
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance Criteria, placeholder: "- [ ] …" }
+    validations: { required: true }
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of Done
+      options:
+        - label: Merged via PR (branched off fresh origin/main)
+        - label: ai-docs updated if conventions/structure changed
+        - label: CI green
+        - label: No unintended behavior change (or noted)

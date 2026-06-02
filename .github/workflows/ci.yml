@@ -1,11 +1,16 @@
 name: CI
 
+# Stack-agnostic, graceful CI skeleton. Every real step is guarded so the workflow stays
+# GREEN on a fresh template and ACTIVATES automatically once you add a build manifest,
+# tests, and a lint config. Wire your toolchain into the steps marked `# TEMPLATE:`.
+
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
 
+# Cancel superseded runs on the same ref to save runner minutes.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -14,5 +19,52 @@ permissions:
   contents: read
 
 jobs:
-  ci:
-    uses: norikit/.github/.github/workflows/swift-ci.yml@main
+  build-test:
+    name: Build & test
+    runs-on: ubuntu-latest   # TEMPLATE: switch to your target runner (e.g. macos-15).
+    steps:
+      - uses: actions/checkout@v6
+
+      # TEMPLATE: detect your build manifest. Replace `Package.swift` / `package.json` /
+      # `Cargo.toml` / etc. with the manifest your stack uses.
+      - name: Detect build manifest
+        id: detect
+        run: |
+          if ls Package.swift package.json Cargo.toml go.mod pyproject.toml 2>/dev/null | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No build manifest yet — skipping build/test. This step activates once one exists."
+          fi
+
+      # TEMPLATE: replace with your real build + test commands, guarded on the detect step.
+      - name: Build & test
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          echo "::notice::TEMPLATE — add your build & test commands here."
+          # e.g. swift build --build-tests && swift test
+          # e.g. npm ci && npm test
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # TEMPLATE: detect your lint config (e.g. .swiftlint.yml, .eslintrc, ruff.toml).
+      - name: Detect lint config
+        id: detect
+        run: |
+          if ls .swiftlint.yml .eslintrc* ruff.toml .golangci.yml 2>/dev/null | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No lint config yet — skipping lint. Run your linter in --strict mode once configured."
+          fi
+
+      # TEMPLATE: run your linter in strict mode, guarded on the detect step.
+      - name: Lint (strict)
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          echo "::notice::TEMPLATE — add your strict lint command here."
+          # e.g. swiftlint --strict

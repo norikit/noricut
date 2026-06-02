@@ -1,0 +1,30 @@
+name: ✨ Feature
+description: A new user-facing capability or increment of value.
+title: "[feature]: "
+type: Feature
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary & value
+      description: "What it does and the value (As a … I want … so that …)."
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance Criteria, placeholder: "- [ ] …" }
+    validations: { required: true }
+  - type: input
+    id: parent
+    attributes:
+      label: Parent epic/story — optional
+      description: "Link the parent issue (e.g. #123)."
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of Done
+      options:
+        - label: Merged via PR (branched off fresh origin/main; never commit to main)
+        - label: ai-docs updated in the same change
+        - label: CI green
+        - label: Standalone-first respected (ecosystem integration optional & availability-gated)
+        - label: No template/token leftovers; READMEs/links updated

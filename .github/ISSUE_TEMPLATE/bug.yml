@@ -1,0 +1,39 @@
+name: 🐞 Bug
+description: A defect — something behaving incorrectly.
+title: "[bug]: "
+type: Bug
+body:
+  - type: textarea
+    id: what-happened
+    attributes: { label: What happened, description: "Actual behavior, including any error output." }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected behavior }
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations: { required: true }
+  - type: input
+    id: env
+    attributes: { label: Environment, placeholder: "macOS 14.5, noribar @ abc123" }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance Criteria, placeholder: "- [ ] …" }
+    validations: { required: true }
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of Done
+      options:
+        - label: Fix merged via PR (branched off fresh origin/main)
+        - label: Regression test or repro covered where feasible
+        - label: ai-docs updated if behavior/decisions changed
+        - label: CI green
+        - label: Standalone-first respected
