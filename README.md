@@ -6,7 +6,7 @@ not a freshly spawned process.
 
 > **Status:** Design phase. This repository currently contains the protocol
 > specification and architecture knowledge base. No daemon code has landed yet —
-> see [`docs/knowledge-base/status.md`](docs/knowledge-base/status.md).
+> see [`ai-docs/status.md`](ai-docs/status.md).
 
 ## Why noricut exists
 
@@ -59,11 +59,11 @@ them spawning processes.
 
 ## Read next
 
-- [`docs/PROTOCOL.md`](docs/PROTOCOL.md) — the noricut Wire Protocol (NWP) v1 specification.
-- [`docs/knowledge-base/architecture.md`](docs/knowledge-base/architecture.md) — how the daemon is structured.
-- [`docs/knowledge-base/decisions.md`](docs/knowledge-base/decisions.md) — locked design decisions and the rationale behind them.
-- [`docs/knowledge-base/language-evaluation.md`](docs/knowledge-base/language-evaluation.md) — the implementation‑language comparison.
-- [`docs/knowledge-base/open-questions.md`](docs/knowledge-base/open-questions.md) — what is still undecided.
+- [`ai-docs/protocol.md`](ai-docs/protocol.md) — the noricut Wire Protocol (NWP) v1 specification.
+- [`ai-docs/architecture.md`](ai-docs/architecture.md) — how the daemon is structured.
+- [`ai-docs/decisions.md`](ai-docs/decisions.md) — locked design decisions and the rationale behind them.
+- [`ai-docs/language-evaluation.md`](ai-docs/language-evaluation.md) — the implementation‑language comparison.
+- [`ai-docs/open-questions.md`](ai-docs/open-questions.md) — what is still undecided.
 
 ## License
 

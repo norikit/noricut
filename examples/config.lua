@@ -1,6 +1,6 @@
 -- Example noricut configuration (illustrative; the daemon does not exist yet).
--- Mirrors noribar's embedded‑Lua, hot‑reloadable style. See docs/knowledge-base/
--- architecture.md §5 and docs/PROTOCOL.md for the underlying model.
+-- Mirrors noribar's embedded‑Lua, hot‑reloadable style. See ai-docs/
+-- architecture.md §5 and ai-docs/protocol.md for the underlying model.
 --
 -- The core idea: a chord publishes to a SUBJECT. Long‑running tools (noribar, a window
 -- manager, your own script host) subscribe to that subject over NWP and react

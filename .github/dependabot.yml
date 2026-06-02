@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Always applicable: keep GitHub Actions used in workflows up to date.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # TEMPLATE: add the ecosystem for your stack once a manifest exists. Examples:
+  # - package-ecosystem: "swift"        # Package.swift
+  #   directory: "/"
+  #   schedule: { interval: "weekly" }
+  # - package-ecosystem: "npm"          # package.json
+  #   directory: "/"
+  #   schedule: { interval: "weekly" }
+  # - package-ecosystem: "cargo"        # Cargo.toml
+  #   directory: "/"
+  #   schedule: { interval: "weekly" }

@@ -14,7 +14,7 @@ De‑risk the central performance claim of the project end‑to‑end: that a ke
 event can be routed from a publisher, through the hub, to N subscribers as a single
 `write()` per subscriber — with **microsecond‑scale local dispatch, zero hot‑path
 allocation, and no process spawn**. Validate the NWP framing and subject‑routing design
-against `../../docs/PROTOCOL.md` before committing to product code.
+against `../../ai-docs/protocol.md` before committing to product code.
 
 This is a *tracer bullet*: thinnest possible vertical slice, not production code. No OS
 keyboard tap yet — a synthetic publisher stands in for the event tap.
@@ -58,7 +58,7 @@ beyond a peer‑cred check, Windows.
 - `code/` — the spike implementation (throwaway PoC; language per Q1, or whichever core
   candidate is being evaluated — the spike may itself inform Q1).
 - `FINDINGS.md` — measured numbers, the latency distribution, anything that should change
-  in `PROTOCOL.md`/`architecture.md`, and a recommendation on whether the design holds.
+  in `ai-docs/protocol.md`/`architecture.md`, and a recommendation on whether the design holds.
 
 ## Notes
 

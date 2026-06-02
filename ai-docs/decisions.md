@@ -88,3 +88,7 @@ de‑risking spikes precede product code. See `CLAUDE.md`.
 > **Not yet locked:** the daemon's implementation language. A full comparison lives in
 > `language-evaluation.md`; the final choice is tracked in `open-questions.md` (Q1)
 > pending owner ratification, because it is a long‑lived, hard‑to‑reverse commitment.
+
+## Standalone-first (inherited — prime directive #10)
+**Decision:** noricut runs as an independent hotkey/shortcut daemon, usable on its own; ecosystem
+integrations are **optional, availability-gated progressive enhancements** — never required.

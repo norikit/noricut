@@ -1,0 +1,25 @@
+name: 📝 Docs
+description: Documentation work — ai-docs, framework, READMEs.
+title: "[docs]: "
+type: Docs
+body:
+  - type: textarea
+    id: what
+    attributes: { label: What needs documenting, description: "Content and where it lives (which ai-docs file / README)." }
+    validations: { required: true }
+  - type: input
+    id: where
+    attributes: { label: Target file(s), placeholder: "ai-docs/architecture.md, README.md" }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance Criteria, placeholder: "- [ ] …" }
+    validations: { required: true }
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of Done
+      options:
+        - label: Merged via PR (branched off fresh origin/main)
+        - label: Doc renders correctly (Mermaid/links valid)
+        - label: Linked from ai-docs/README.md if a new file
+        - label: Ecosystem aggregate refreshed (if applicable)
